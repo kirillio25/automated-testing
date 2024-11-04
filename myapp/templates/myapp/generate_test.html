@@ -1,0 +1,15 @@
+<!-- myapp/templates/myapp/generate_test.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Создать тест по теме</title>
+</head>
+<body>
+    <h1>Введите тему для создания теста</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Сгенерировать тест</button>
+    </form>
+</body>
+</html>

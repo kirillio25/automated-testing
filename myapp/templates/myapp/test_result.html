@@ -1,0 +1,44 @@
+<!-- myapp/templates/myapp/test_result.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Тест по теме {{ topic }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .question {
+            margin-bottom: 20px;
+        }
+        .answers {
+            list-style-type: none;
+            padding: 0;
+        }
+        .answers li {
+            margin: 5px 0;
+        }
+        .correct-answer {
+            font-weight: bold;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест по теме: {{ topic }}</h1>
+
+    {% for question in test_data %}
+        <div class="question">
+            <p><strong>Вопрос {{ forloop.counter }}:</strong> {{ question.question }}</p>
+            <ul class="answers">
+                {% for answer in question.answers %}
+                    <li>{{ answer }}</li>
+                {% endfor %}
+            </ul>
+            <!-- Вывод правильного ответа для тестирования -->
+            <p class="correct-answer">Правильный ответ: {{ question.correct_answer }}</p>
+        </div>
+    {% endfor %}
+</body>
+</html>
