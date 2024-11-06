@@ -10,6 +10,11 @@ def generate_test(request):
         if form.is_valid():
             topic = form.cleaned_data['topic']
             test_data = generate_test_from_topic(topic)
+
+            # Сохраняем правильные ответы в сессии
+            correct_answers = {f"Вопрос {i+1}": item['correct_answer'] for i, item in enumerate(test_data)}
+            request.session['correct_answers'] = correct_answers
+
             return render(request, 'myapp/test_result.html', {'test_data': test_data, 'topic': topic})
     else:
         form = TopicForm()
@@ -48,7 +53,7 @@ def generate_test_from_topic(topic):
 
         # Извлекаем контент из ответа
         content = response.choices[0].message.content
-        print(content)
+        # print(content)
         # Парсим результат для формирования вопросов и ответов
         questions = parse_test_response(content)
         return questions
@@ -56,6 +61,40 @@ def generate_test_from_topic(topic):
     except Exception as e:
         print(f"Ошибка при генерации теста: {e}")
         return []
+    
+def check_answers(request):
+    if request.method == "POST":
+        # Получаем ответы пользователя и правильные ответы из сессии
+        correct_answers = request.session.get('correct_answers', {})
+        user_answers = request.POST
+
+        # Сравниваем ответы пользователя с правильными ответами
+        results = []
+        for i, (question, correct_answer) in enumerate(correct_answers.items(), start=1):
+            # Извлекаем ответ пользователя для данного вопроса
+            
+            user_answer = user_answers.get(f"answer_{i}", "").strip().upper()[0]  
+            correct_answer = correct_answer.strip().upper()[0]  
+
+            user_answer_text = user_answers.get(f"answer_{i}", "") 
+            
+           
+            # print(correct_answer)
+            is_correct = (user_answer == correct_answer)
+
+            # Добавляем результат для каждого вопроса
+            results.append({
+                'question': question,
+                'user_answer': user_answer,
+                'correct_answer': correct_answer,
+                'is_correct': is_correct,
+                'user_answer_text': user_answer_text,
+            })
+
+        return render(request, 'myapp/test_results.html', {'results': results})
+    else:
+        return render(request, 'myapp/generate_test.html')
+
 
 def parse_test_response(response_text):
     # Разбираем ответ в формате вопросов и вариантов
@@ -63,12 +102,13 @@ def parse_test_response(response_text):
     for item in response_text.strip().split("\n\n"):
         lines = item.split("\n")
         if len(lines) >= 5:
-            question = lines[0]
-            answers = lines[1:5]
-            correct_answer = lines[5] if len(lines) > 5 else "Не указан"
+            question = lines[0].replace("Вопрос: ", "").strip()  # Убираем "Вопрос: " из текста вопроса
+            answers = [line.strip() for line in lines[1:5]]
+            correct_answer = lines[5].replace("Ответ:", "").strip()  # Извлекаем только букву
             questions.append({
                 'question': question,
                 'answers': answers,
                 'correct_answer': correct_answer
             })
     return questions
+

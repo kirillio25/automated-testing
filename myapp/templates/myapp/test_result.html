@@ -1,44 +1,68 @@
-<!-- myapp/templates/myapp/test_result.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>Тест по теме {{ topic }}</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        .question {
-            margin-bottom: 20px;
-        }
-        .answers {
-            list-style-type: none;
-            padding: 0;
-        }
-        .answers li {
-            margin: 5px 0;
-        }
-        .correct-answer {
-            font-weight: bold;
-            color: green;
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
-<body>
-    <h1>Тест по теме: {{ topic }}</h1>
+<body class="container py-5">
+    <h1 class="mb-4">Тест по теме: {{ topic }}</h1>
 
-    {% for question in test_data %}
-        <div class="question">
-            <p><strong>Вопрос {{ forloop.counter }}:</strong> {{ question.question }}</p>
-            <ul class="answers">
-                {% for answer in question.answers %}
-                    <li>{{ answer }}</li>
-                {% endfor %}
-            </ul>
-            <!-- Вывод правильного ответа для тестирования -->
-            <p class="correct-answer">Правильный ответ: {{ question.correct_answer }}</p>
-        </div>
-    {% endfor %}
+    <!-- Форма для отправки ответов на тест -->
+    <form id="testForm" method="post" action="{% url 'check_answers' %}">
+        {% csrf_token %}
+    
+        {% for question in test_data %}
+            <div class="mb-4 p-3 border rounded">
+                <!-- Сохраняем `forloop.counter` внешнего цикла в переменной -->
+                {% with question_counter=forloop.counter %}
+                    <p><strong>Вопрос {{ question_counter }}:</strong> {{ question.question }}</p>
+                    <div class="form-check">
+                        {% for answer in question.answers %}
+                            <!-- Здесь используем `question_counter` вместо `forloop.counter` -->
+                            <input type="radio" class="form-check-input answer-choice" 
+                                   name="answer_{{ question_counter }}" 
+                                   id="q{{ question_counter }}_answer{{ forloop.counter0 }}" 
+                                   value="{{ answer }}" required>
+                            <label class="form-check-label" for="q{{ question_counter }}_answer{{ forloop.counter0 }}">{{ answer }}</label><br>
+                        {% endfor %}
+                    </div>
+                {% endwith %}
+            </div>
+        {% endfor %}
+    
+        <button type="submit" class="btn btn-primary">Завершить тестирование</button>
+    </form>
+    
+    
+    
+    
+    
+
+    <script>
+        $(document).ready(function() {
+            // Сохраняем выбранные ответы в локальном хранилище браузера
+            $('.answer-choice').on('change', function() {
+                let questionId = $(this).attr('name');  // Получаем имя группы вопроса (answer_1, answer_2 и т.д.)
+                let selectedAnswer = $(this).val();  // Получаем выбранный ответ
+                localStorage.setItem(questionId, selectedAnswer);  // Сохраняем ответ в локальном хранилище
+            });
+
+            // Восстанавливаем выбранные ответы при загрузке страницы
+            $('.answer-choice').each(function() {
+                let questionId = $(this).attr('name');
+                let savedAnswer = localStorage.getItem(questionId);
+                if (savedAnswer && $(this).val() === savedAnswer) {
+                    $(this).prop('checked', true);  // Восстанавливаем выбор ответа
+                }
+            });
+
+            // Очищаем сохранённые ответы после отправки формы
+            $('#testForm').on('submit', function() {
+                localStorage.clear();
+            });
+        });
+    </script>
 </body>
 </html>
