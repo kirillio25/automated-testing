@@ -3,6 +3,9 @@ from django.shortcuts import render
 from .forms import TopicForm
 from g4f.client import Client  # Импортируем нужный клиент
 import random
+from django.http import JsonResponse
+import re
+
 
 def generate_test(request):
     if request.method == "POST":
@@ -14,6 +17,7 @@ def generate_test(request):
             # Сохраняем правильные ответы в сессии
             correct_answers = {f"Вопрос {i+1}": item['correct_answer'] for i, item in enumerate(test_data)}
             request.session['correct_answers'] = correct_answers
+            request.session['test_data'] = test_data
 
             return render(request, 'myapp/test_result.html', {'test_data': test_data, 'topic': topic})
     else:
@@ -67,28 +71,35 @@ def check_answers(request):
         # Получаем ответы пользователя и правильные ответы из сессии
         correct_answers = request.session.get('correct_answers', {})
         user_answers = request.POST
-
+        
+        test_data = request.session.get('test_data', None)
+        
         # Сравниваем ответы пользователя с правильными ответами
         results = []
         for i, (question, correct_answer) in enumerate(correct_answers.items(), start=1):
             # Извлекаем ответ пользователя для данного вопроса
-            
-            user_answer = user_answers.get(f"answer_{i}", "").strip().upper()[0]  
-            correct_answer = correct_answer.strip().upper()[0]  
+            user_answer = user_answers.get(f"answer_{i}", "").strip().upper()[0]
+            correct_answer = correct_answer.strip().upper()[0]
 
-            user_answer_text = user_answers.get(f"answer_{i}", "") 
-            
-           
-            # print(correct_answer)
+            user_answer_text = user_answers.get(f"answer_{i}", "")
+
+            # Находим правильный вариант ответа в списке answers
+            test_data_item = test_data[i - 1] if test_data and len(test_data) >= i else None
+            if test_data_item:
+                test_data_item['question'] = re.sub(r"\*\*", "", test_data_item['question'])
+                answers = test_data_item.get('answers', [])  # Извлекаем варианты ответа
+                correct_answer_text = next((answer for answer in answers if answer.startswith(correct_answer)), "Нет данных")
+
             is_correct = (user_answer == correct_answer)
 
             # Добавляем результат для каждого вопроса
             results.append({
                 'question': question,
                 'user_answer': user_answer,
-                'correct_answer': correct_answer,
+                'correct_answer': correct_answer_text,  # Здесь правильный текст ответа
                 'is_correct': is_correct,
                 'user_answer_text': user_answer_text,
+                'test_data': test_data_item,
             })
 
         return render(request, 'myapp/test_results.html', {'results': results})
