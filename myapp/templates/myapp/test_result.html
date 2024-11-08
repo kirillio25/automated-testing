@@ -17,7 +17,7 @@
             <div class="mb-4 p-3 border rounded">
                 <!-- Сохраняем `forloop.counter` внешнего цикла в переменной -->
                 {% with question_counter=forloop.counter %}
-                    <p><strong>Вопрос {{ question_counter }}:</strong> {{ question.question }}</p>
+                    <p><strong>{{ question.question }}</strong></p>
                     <div class="form-check">
                         {% for answer in question.answers %}
                             <!-- Здесь используем `question_counter` вместо `forloop.counter` -->

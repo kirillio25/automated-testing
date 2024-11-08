@@ -57,9 +57,10 @@ def generate_test_from_topic(topic):
 
         # Извлекаем контент из ответа
         content = response.choices[0].message.content
-        # print(content)
+        print(content)
         # Парсим результат для формирования вопросов и ответов
         questions = parse_test_response(content)
+        
         return questions
 
     except Exception as e:
@@ -113,9 +114,11 @@ def parse_test_response(response_text):
     for item in response_text.strip().split("\n\n"):
         lines = item.split("\n")
         if len(lines) >= 5:
-            question = lines[0].replace("Вопрос: ", "").strip()  # Убираем "Вопрос: " из текста вопроса
+            # Убираем "Вопрос: " и звездочки "**"
+            question = lines[0].replace("Вопрос: ", "").replace("**", "").strip()
             answers = [line.strip() for line in lines[1:5]]
-            correct_answer = lines[5].replace("Ответ:", "").strip()  # Извлекаем только букву
+            # Извлекаем правильный ответ
+            correct_answer = lines[5].replace("Ответ:", "").strip()
             questions.append({
                 'question': question,
                 'answers': answers,
