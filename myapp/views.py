@@ -6,6 +6,41 @@ import random
 from django.http import JsonResponse
 import re
 
+from openpyxl import Workbook
+from django.http import HttpResponse
+
+def download_test_as_excel(request):
+    # Получаем данные теста из сессии
+    test_data = request.session.get('test_data', [])
+    topic = request.session.get('topic', 'Неизвестная тема')
+
+    # Создаем Excel-документ
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Тест"
+
+    # Добавляем заголовок
+    sheet.append(["Тема:", topic])
+    sheet.append([])  # Пустая строка
+    sheet.append(["Вопрос", "Вариант A", "Вариант B", "Вариант C", "Вариант D", "Правильный ответ"])
+
+    # Заполняем данными
+    for item in test_data:
+        sheet.append([
+            item['question'],
+            item['answers'][0],
+            item['answers'][1],
+            item['answers'][2],
+            item['answers'][3],
+            item['correct_answer']
+        ])
+
+    # Возвращаем Excel-файл в HTTP-ответе
+    response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response['Content-Disposition'] = 'attachment; filename="test.xlsx"'
+    workbook.save(response)
+
+    return response
 
 def generate_test(request):
     if request.method == "POST":
@@ -14,15 +49,15 @@ def generate_test(request):
             topic = form.cleaned_data['topic']
             test_data = generate_test_from_topic(topic)
 
-            # Сохраняем правильные ответы в сессии
-            correct_answers = {f"Вопрос {i+1}": item['correct_answer'] for i, item in enumerate(test_data)}
-            request.session['correct_answers'] = correct_answers
+            # Сохраняем данные теста и тему в сессии
             request.session['test_data'] = test_data
+            request.session['topic'] = topic
 
             return render(request, 'myapp/test_result.html', {'test_data': test_data, 'topic': topic})
     else:
         form = TopicForm()
     return render(request, 'myapp/generate_test.html', {'form': form})
+
 
 def generate_test_from_topic(topic):
     # Формируем инструкцию для генерации вопросов и ответов

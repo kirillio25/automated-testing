@@ -34,6 +34,11 @@
     
         <button type="submit" class="btn btn-primary">Завершить тестирование</button>
     </form>
+
+    <!-- Кнопка для скачивания Excel -->
+    <form action="{% url 'download_test_as_excel' %}" method="get">
+        <button type="submit" class="btn btn-primary mt-2">Сохранить тест в Excel</button>
+    </form>
     
     
     
