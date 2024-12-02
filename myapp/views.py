@@ -2,8 +2,6 @@
 from django.shortcuts import render
 from .forms import TopicForm
 from g4f.client import Client  # Импортируем нужный клиент
-import random
-from django.http import JsonResponse
 import re
 
 from openpyxl import Workbook
@@ -92,7 +90,7 @@ def generate_test_from_topic(topic):
 
         # Извлекаем контент из ответа
         content = response.choices[0].message.content
-        print(content)
+        # print(content)
         # Парсим результат для формирования вопросов и ответов
         questions = parse_test_response(content)
         
