@@ -1,28 +1,24 @@
-# myapp/views.py
 from django.shortcuts import render
-from .forms import TopicForm
-from g4f.client import Client  # Импортируем нужный клиент
-import re
-
-from openpyxl import Workbook
 from django.http import HttpResponse
+from .forms import TopicForm
+from g4f.client import Client  
+import re
+from openpyxl import Workbook
+import time
+
 
 def download_test_as_excel(request):
-    # Получаем данные теста из сессии
     test_data = request.session.get('test_data', [])
     topic = request.session.get('topic', 'Неизвестная тема')
 
-    # Создаем Excel-документ
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Тест"
 
-    # Добавляем заголовок
     sheet.append(["Тема:", topic])
-    sheet.append([])  # Пустая строка
+    sheet.append([])  
     sheet.append(["Вопрос", "Вариант A", "Вариант B", "Вариант C", "Вариант D", "Правильный ответ"])
 
-    # Заполняем данными
     for item in test_data:
         sheet.append([
             item['question'],
@@ -33,12 +29,12 @@ def download_test_as_excel(request):
             item['correct_answer']
         ])
 
-    # Возвращаем Excel-файл в HTTP-ответе
     response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     response['Content-Disposition'] = 'attachment; filename="test.xlsx"'
     workbook.save(response)
 
     return response
+
 
 def generate_test(request):
     if request.method == "POST":
@@ -47,8 +43,9 @@ def generate_test(request):
             topic = form.cleaned_data['topic']
             test_data = generate_test_from_topic(topic)
 
-            # Сохраняем данные теста и тему в сессии
             request.session['test_data'] = test_data
+            correct_answers = {i + 1: item['correct_answer'] for i, item in enumerate(test_data)}
+            request.session['correct_answers'] = correct_answers
             request.session['topic'] = topic
 
             return render(request, 'myapp/test_result.html', {'test_data': test_data, 'topic': topic})
@@ -58,7 +55,6 @@ def generate_test(request):
 
 
 def generate_test_from_topic(topic):
-    # Формируем инструкцию для генерации вопросов и ответов
     prompt = (
         f"Создай тест на тему '{topic}'.\n\n"
         "Пожалуйста, составь 10 вопросов, связанных с данной темой. Для каждого вопроса предоставь 4 варианта ответа, "
@@ -73,89 +69,112 @@ def generate_test_from_topic(topic):
         "и быть реалистичными, чтобы создать небольшой элемент сложности для пользователя."
     )
 
-    try:
-        # Инициализация клиента
-        client = Client()
-        
-        # Отправляем запрос к модели GPT-3.5 с нужными параметрами
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ты помощник, который создает тесты."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500,
-            temperature=0.7
-        )
+    while True: 
+        try:
+            client = Client()
+            
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": "Ты помощник, который создает тесты."},
+                          {"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7
+            )
 
-        # Извлекаем контент из ответа
-        content = response.choices[0].message.content
-        # print(content)
-        # Парсим результат для формирования вопросов и ответов
-        questions = parse_test_response(content)
-        
-        return questions
 
-    except Exception as e:
-        print(f"Ошибка при генерации теста: {e}")
-        return []
-    
+            content = response.choices[0].message.content
+
+            questions = parse_test_response(content)
+            
+            return questions  
+
+        except Exception as e:
+            print(f"Ошибка при парсинге или запросе: {e}. Пробуем снова через 1 секунду...")
+            time.sleep(1)  
+            
 def check_answers(request):
     if request.method == "POST":
-        # Получаем ответы пользователя и правильные ответы из сессии
         correct_answers = request.session.get('correct_answers', {})
         user_answers = request.POST
         
         test_data = request.session.get('test_data', None)
+
+        print("Test Data:", test_data)  
         
-        # Сравниваем ответы пользователя с правильными ответами
         results = []
         for i, (question, correct_answer) in enumerate(correct_answers.items(), start=1):
-            # Извлекаем ответ пользователя для данного вопроса
-            user_answer = user_answers.get(f"answer_{i}", "").strip().upper()[0]
-            correct_answer = correct_answer.strip().upper()[0]
+            user_answer = user_answers.get(f"answer_{i}", "").strip().upper() 
+            correct_answer = correct_answer.strip().upper()  
+
 
             user_answer_text = user_answers.get(f"answer_{i}", "")
 
-            # Находим правильный вариант ответа в списке answers
             test_data_item = test_data[i - 1] if test_data and len(test_data) >= i else None
             if test_data_item:
                 test_data_item['question'] = re.sub(r"\*\*", "", test_data_item['question'])
-                answers = test_data_item.get('answers', [])  # Извлекаем варианты ответа
-                correct_answer_text = next((answer for answer in answers if answer.startswith(correct_answer)), "Нет данных")
+                answers = test_data_item.get('answers', [])  
+                correct_answer_text = "Нет данных"  
+
+                if correct_answer == 'A' and len(answers) > 0:
+                    correct_answer_text = answers[0]
+                elif correct_answer == 'B' and len(answers) > 1:
+                    correct_answer_text = answers[1]
+                elif correct_answer == 'C' and len(answers) > 2:
+                    correct_answer_text = answers[2]
+                elif correct_answer == 'D' and len(answers) > 3:
+                    correct_answer_text = answers[3]
 
             is_correct = (user_answer == correct_answer)
 
-            # Добавляем результат для каждого вопроса
             results.append({
-                'question': question,
-                'user_answer': user_answer,
-                'correct_answer': correct_answer_text,  # Здесь правильный текст ответа
-                'is_correct': is_correct,
-                'user_answer_text': user_answer_text,
-                'test_data': test_data_item,
+                'question': test_data_item,
+                'user_answer': user_answer_text,
+                'correct_answer': correct_answer_text,
+                'is_correct': is_correct
             })
+        
+        print("Results:", results)
 
         return render(request, 'myapp/test_results.html', {'results': results})
-    else:
-        return render(request, 'myapp/generate_test.html')
 
 
-def parse_test_response(response_text):
-    # Разбираем ответ в формате вопросов и вариантов
+def parse_test_response(content):
     questions = []
-    for item in response_text.strip().split("\n\n"):
-        lines = item.split("\n")
-        if len(lines) >= 5:
-            # Убираем "Вопрос: " и звездочки "**"
-            question = lines[0].replace("Вопрос: ", "").replace("**", "").strip()
-            answers = [line.strip() for line in lines[1:5]]
-            # Извлекаем правильный ответ
-            correct_answer = lines[5].replace("Ответ:", "").strip()
-            questions.append({
-                'question': question,
-                'answers': answers,
-                'correct_answer': correct_answer
-            })
-    return questions
+    raw_questions = content.strip().split("\n\n")  
 
+    for raw_question in raw_questions:
+        try:
+            lines = raw_question.strip().split("\n")
+
+            if len(lines) < 6:
+                print(f"Ошибка при парсинге вопроса: недостаточно строк. Данные: {lines}")
+                raise ValueError("Недостаточно строк для парсинга вопроса.")
+
+            question_text = lines[0].replace("Вопрос: ", "").strip()
+
+            answers = [line.replace(f"{letter}) ", "").strip() for letter, line in zip("ABCD", lines[1:5])]
+            if len(answers) != 4:
+                print(f"Ошибка при парсинге ответов. Данные: {lines}")
+                raise ValueError("Некорректное количество вариантов ответа.")
+
+            correct_answer_line = lines[5]
+            if not correct_answer_line.startswith("Ответ:"):
+                print(f"Ошибка при парсинге правильного ответа. Данные: {correct_answer_line}")
+                raise ValueError("Невалидный формат правильного ответа.")
+
+            correct_answer = correct_answer_line.replace("Ответ:", "").strip()
+            if correct_answer not in ["A", "B", "C", "D"]:
+                print(f"Ошибка: некорректный правильный ответ. Данные: {correct_answer}")
+                raise ValueError("Невалидный правильный ответ.")
+
+            questions.append({
+                "question": question_text,
+                "answers": answers,
+                "correct_answer": correct_answer,
+            })
+
+        except Exception as e:
+            print(f"Ошибка при парсинге вопроса: {e}. Пробуем заново парсить все вопросы.")
+            raise  
+
+    return questions

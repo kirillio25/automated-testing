@@ -7,21 +7,24 @@
 </head>
 <body class="container py-5">
     <h1 class="mb-4">Результаты теста</h1>
-    
-    {% for result in results %}
-    <div class="mb-4 p-3 border rounded {% if result.is_correct %}bg-success{% else %}bg-danger{% endif %}">
-        <p><strong>{{ result.test_data.question }}</strong></p>
-        <p>Ваш ответ: <strong>{{ result.user_answer_text }}</strong></p>
-        <p>Правильный ответ: <strong>{{ result.correct_answer }}</strong></p>
-        {% if result.is_correct %}
-            <p class="text-light">Верно!</p>
-        {% else %}
-            <p class="text-light">Неверно.</p>
-        {% endif %}
-    </div>
-{% endfor %}
 
-    
+    {% if results %}
+        {% for result in results %}
+            <div class="mb-4 p-3 border rounded {% if result.correct_answer == result.user_answer %}bg-success{% else %}bg-danger{% endif %}">
+                <p><strong>{{ result.question.question }}</strong></p>  
+                <p>Ваш ответ: <strong>{{ result.user_answer }}</strong></p>  
+                <p>Правильный ответ: <strong>{{ result.correct_answer }}</strong></p> 
+                {% if result.correct_answer == result.user_answer %}
+                    <p class="text-light">Верно!</p>
+                {% else %}
+                    <p class="text-light">Неверно.</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <p>Нет данных для отображения.</p>
+    {% endif %}
+
     <a href="{% url 'generate_test' %}" class="btn btn-primary">Пройти тест заново</a>
 </body>
 </html>
